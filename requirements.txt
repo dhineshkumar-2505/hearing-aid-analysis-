@@ -3,6 +3,5 @@ pandas
 numpy
 seaborn
 scikit-learn
-imbalance-learn
 xgboost
 joblib
