@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
@@ -78,6 +79,10 @@ with tab1:
             'f8k': f8k
         }
         
+        # For actual prediction, would use a trained model
+        # Here we'll implement a simple rule-based system for demo
+        # In a real app, replace this with: prediction = model.predict(pd.DataFrame([input_data]))[0]
+        
         # Simple rule-based risk assessment
         high_freq_avg = (f4k + f8k) / 2
         speech_freq_avg = (f500 + f1k + f2k + f4k) / 4
@@ -107,23 +112,12 @@ with tab1:
             st.metric("Risk Level", f"{risk_factors}/5")
         
         with result_cols[1]:
-            # Create audiogram visualization using seaborn
-            fig = sns.Figure(figsize=(8, 4))
-            
-            # Create a DataFrame for plotting
+            # Create audiogram visualization
+            fig, ax = plt.subplots(figsize=(8, 4))
             frequencies = [250, 500, 1000, 2000, 4000, 8000]
             thresholds = [f250, f500, f1k, f2k, f4k, f8k]
-            audiogram_df = pd.DataFrame({
-                'Frequency': frequencies,
-                'Threshold': thresholds
-            })
             
-            # Create plot
-            ax = fig.subplots()
-            sns.lineplot(data=audiogram_df, x='Frequency', y='Threshold', marker='o', 
-                          linewidth=2, markersize=8, ax=ax)
-            
-            # Set x-axis to log scale and customize
+            ax.plot(frequencies, thresholds, 'b-o', linewidth=2, markersize=8)
             ax.set_xscale('log')
             ax.set_xticks(frequencies)
             ax.set_xticklabels([str(f) for f in frequencies])
@@ -133,7 +127,7 @@ with tab1:
             ax.grid(True)
             ax.invert_yaxis()
             
-            # Add hearing ranges
+            # Add normal hearing range
             ax.axhspan(0, 25, color='green', alpha=0.2, label='Normal')
             ax.axhspan(25, 40, color='yellow', alpha=0.2, label='Mild Loss')
             ax.axhspan(40, 70, color='orange', alpha=0.2, label='Moderate Loss')
@@ -374,46 +368,39 @@ with tab2:
         viz_tabs = st.tabs(["Distribution", "Correlation", "Age Groups", "Audiograms"])
         
         with viz_tabs[0]:
-            # Create distribution plots using seaborn
-            fig = sns.Figure(figsize=(10, 12))
-            axs = fig.subplots(3, 2)
+            # Create distribution plots
+            fig, axs = plt.subplots(3, 2, figsize=(10, 12))
             
-            # Age distribution
             sns.histplot(data=df, x='age', hue='hearing_loss', multiple='stack', ax=axs[0, 0])
             axs[0, 0].set_title('Age Distribution by Hearing Status')
             
-            # Earphone type
             sns.countplot(data=df, x='earphone_type', hue='hearing_loss', ax=axs[0, 1])
             axs[0, 1].set_title('Earphone Type by Hearing Status')
             
-            # Usage hours
             sns.histplot(data=df, x='usage_hours', hue='hearing_loss', multiple='stack', ax=axs[1, 0])
             axs[1, 0].set_title('Daily Usage Hours by Hearing Status')
             
-            # Volume level
             sns.histplot(data=df, x='volume_level', hue='hearing_loss', multiple='stack', ax=axs[1, 1])
             axs[1, 1].set_title('Volume Level by Hearing Status')
             
             # Frequency thresholds
-            freq_df = df.melt(id_vars='hearing_loss', 
-                            value_vars=['f250', 'f500', 'f1k', 'f2k', 'f4k', 'f8k'],
-                            var_name='frequency', value_name='threshold')
-            sns.boxplot(data=freq_df, x='frequency', y='threshold', hue='hearing_loss', ax=axs[2, 0])
+            sns.boxplot(data=df.melt(id_vars='hearing_loss', 
+                                     value_vars=['f250', 'f500', 'f1k', 'f2k', 'f4k', 'f8k'],
+                                     var_name='frequency', value_name='threshold'),
+                        x='frequency', y='threshold', hue='hearing_loss', ax=axs[2, 0])
             axs[2, 0].set_title('Hearing Thresholds by Frequency and Status')
             
-            # 4kHz distribution
             sns.histplot(data=df, x='f4k', hue='hearing_loss', multiple='stack', ax=axs[2, 1])
             axs[2, 1].set_title('4kHz Threshold Distribution by Hearing Status')
             
-            fig.tight_layout()
+            plt.tight_layout()
             st.pyplot(fig)
             
         with viz_tabs[1]:
-            # Correlation matrix using seaborn
+            # Correlation matrix
             corr_matrix = df.corr()
             
-            fig = sns.Figure(figsize=(10, 8))
-            ax = fig.subplots()
+            fig, ax = plt.subplots(figsize=(10, 8))
             sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f', ax=ax)
             ax.set_title('Correlation Matrix')
             st.pyplot(fig)
@@ -424,38 +411,27 @@ with tab2:
             age_labels = ['<20', '20-35', '35-50', '50-65', '65+']
             df['age_group'] = pd.cut(df['age'], bins=age_bins, labels=age_labels)
             
-            fig = sns.Figure(figsize=(12, 5))
-            axs = fig.subplots(1, 2)
+            fig, axs = plt.subplots(1, 2, figsize=(12, 5))
             
             # Hearing loss by age group
-            age_loss_data = df.groupby('age_group')['hearing_loss'].mean().reset_index()
-            sns.barplot(data=age_loss_data, x='age_group', y='hearing_loss', ax=axs[0], color='skyblue')
+            hearing_by_age = df.groupby('age_group')['hearing_loss'].mean()
+            hearing_by_age.plot(kind='bar', ax=axs[0], color='skyblue')
             axs[0].set_title('Hearing Loss Probability by Age Group')
             axs[0].set_ylabel('Probability')
             
-            # Average thresholds by age - prepare data for seaborn
+            # Average thresholds by age
             age_thresholds = df.groupby('age_group')[['f250', 'f500', 'f1k', 'f2k', 'f4k', 'f8k']].mean()
-            age_threshold_data = age_thresholds.stack().reset_index()
-            age_threshold_data.columns = ['age_group', 'frequency', 'threshold']
-            
-            # Map frequency codes to Hz values for better readability
-            freq_map = {'f250': '250Hz', 'f500': '500Hz', 'f1k': '1kHz', 'f2k': '2kHz', 'f4k': '4kHz', 'f8k': '8kHz'}
-            age_threshold_data['frequency'] = age_threshold_data['frequency'].map(freq_map)
-            
-            # Plot with seaborn
-            sns.lineplot(data=age_threshold_data, x='frequency', y='threshold', hue='age_group', 
-                         marker='o', ax=axs[1])
+            age_thresholds.T.plot(ax=axs[1], marker='o')
             axs[1].set_title('Average Hearing Thresholds by Age Group')
             axs[1].set_xlabel('Frequency')
             axs[1].set_ylabel('Threshold (dB)')
             
-            fig.tight_layout()
+            plt.tight_layout()
             st.pyplot(fig)
             
         with viz_tabs[3]:
-            # Sample audiograms by hearing status using seaborn
-            fig = sns.Figure(figsize=(14, 6))
-            axs = fig.subplots(1, 2)
+            # Sample audiograms by hearing status
+            fig, axs = plt.subplots(1, 2, figsize=(14, 6))
             
             # Get random sample of each group
             normal_samples = df[df['hearing_loss'] == 0].sample(min(10, (df['hearing_loss'] == 0).sum()))
@@ -464,30 +440,10 @@ with tab2:
             frequencies = [250, 500, 1000, 2000, 4000, 8000]
             freq_cols = ['f250', 'f500', 'f1k', 'f2k', 'f4k', 'f8k']
             
-            # Create long format data for seaborn
-            normal_data = []
-            for i, row in normal_samples.iterrows():
-                for j, freq in enumerate(freq_cols):
-                    normal_data.append({
-                        'Frequency': frequencies[j],
-                        'Threshold': row[freq],
-                        'Sample': i
-                    })
-            normal_df = pd.DataFrame(normal_data)
-            
-            loss_data = []
-            for i, row in loss_samples.iterrows():
-                for j, freq in enumerate(freq_cols):
-                    loss_data.append({
-                        'Frequency': frequencies[j],
-                        'Threshold': row[freq],
-                        'Sample': i
-                    })
-            loss_df = pd.DataFrame(loss_data)
-            
             # Plot normal hearing
-            sns.lineplot(data=normal_df, x='Frequency', y='Threshold', hue='Sample', 
-                          ax=axs[0], alpha=0.5, legend=False)
+            for i, row in normal_samples.iterrows():
+                thresholds = [row[col] for col in freq_cols]
+                axs[0].plot(frequencies, thresholds, alpha=0.5, marker='o')
             
             axs[0].set_title('Sample Audiograms - Normal Hearing')
             axs[0].set_xscale('log')
@@ -502,8 +458,9 @@ with tab2:
             axs[0].axhspan(0, 25, color='green', alpha=0.2)
             
             # Plot hearing loss
-            sns.lineplot(data=loss_df, x='Frequency', y='Threshold', hue='Sample', 
-                          ax=axs[1], alpha=0.5, legend=False)
+            for i, row in loss_samples.iterrows():
+                thresholds = [row[col] for col in freq_cols]
+                axs[1].plot(frequencies, thresholds, alpha=0.5, marker='o')
             
             axs[1].set_title('Sample Audiograms - Hearing Loss')
             axs[1].set_xscale('log')
@@ -520,11 +477,9 @@ with tab2:
             axs[1].axhspan(40, 70, color='orange', alpha=0.2, label='Moderate Loss')
             axs[1].axhspan(70, 100, color='red', alpha=0.2, label='Severe Loss')
             
-            # Add legend
-            handles, labels = axs[1].get_legend_handles_labels()
-            axs[1].legend(handles[:4], labels[:4], title='Hearing Range')
+            axs[1].legend()
             
-            fig.tight_layout()
+            plt.tight_layout()
             st.pyplot(fig)
 
 with tab3:
@@ -565,349 +520,195 @@ with tab3:
         if model_type == "Random Forest":
             n_estimators = st.slider("Number of trees", 10, 500, 100)
             max_depth = st.slider("Maximum tree depth", 2, 30, 10)
-            min_samples_split = st.slider("Minimum samples to split", 2, 20, 5)
-            class_weight = st.selectbox("Class weights", ["balanced", "None"])
-            
-            # Convert class_weight to None if selected
-            if class_weight == "None":
-                class_weight = None
+            min_samples_split = st.slider("Minimum samples to split", 2, 20, 2)
         
-        elif model_type == "XGBoost":
-            try:
-                import xgboost as xgb
-                n_estimators = st.slider("Number of trees", 10, 500, 100)
-                learning_rate = st.slider("Learning rate", 0.01, 0.3, 0.1, 0.01)
-                max_depth = st.slider("Maximum tree depth", 2, 15, 6)
-                subsample = st.slider("Subsample ratio", 0.5, 1.0, 0.8, 0.1)
-            except ImportError:
-                st.error("XGBoost is not installed. Please install it to use this model type.")
-                st.stop()
-                
-        elif model_type == "Logistic Regression":
-            C = st.slider("Regularization strength (C)", 0.01, 10.0, 1.0, 0.01)
-            penalty = st.selectbox("Penalty", ["l2", "l1", "elasticnet", "none"])
-            solver = st.selectbox("Solver", ["lbfgs", "liblinear", "saga"])
-            
-            # Check solver/penalty compatibility
-            if penalty == "elasticnet" and solver != "saga":
-                st.warning("Elasticnet penalty requires saga solver. Switching solver to saga.")
-                solver = "saga"
-            elif penalty == "l1" and solver == "lbfgs":
-                st.warning("L1 penalty is not supported with lbfgs solver. Switching solver to liblinear.")
-                solver = "liblinear"
-            elif penalty == "none" and solver == "liblinear":
-                st.warning("No penalty is not supported with liblinear solver. Switching solver to lbfgs.")
-                solver = "lbfgs"
-                
-        # Data preprocessing options
-        st.subheader("Data Preprocessing")
-        use_smote = st.checkbox("Apply SMOTE for class imbalance", True)
-        test_size = st.slider("Test set size", 0.1, 0.5, 0.2, 0.05)
+        # SMOTE oversampling option
+        use_smote = st.checkbox("Use SMOTE to handle class imbalance", value=True)
         
-        # Features selection
+        # Feature selection
         st.subheader("Feature Selection")
-        st.markdown("Select features to include in the model:")
+        available_features = X.columns.tolist()
+        selected_features = st.multiselect("Select features to include", available_features, default=available_features)
         
-        feature_cols = st.columns(3)
-        with feature_cols[0]:
-            use_personal = st.checkbox("Personal factors", True)
-            if use_personal:
-                use_age = st.checkbox("Age", True)
-                use_gender = st.checkbox("Gender", True)
-        
-        with feature_cols[1]:
-            use_earphone = st.checkbox("Earphone usage", True)
-            if use_earphone:
-                use_type = st.checkbox("Earphone type", True)
-                use_hours = st.checkbox("Usage hours", True)
-                use_years = st.checkbox("Usage years", True)
-                use_volume = st.checkbox("Volume level", True)
-        
-        with feature_cols[2]:
-            use_audio = st.checkbox("Audiometry results", True)
-            if use_audio:
-                use_low_freq = st.checkbox("Low frequencies (250-500Hz)", True)
-                use_mid_freq = st.checkbox("Mid frequencies (1k-2kHz)", True)
-                use_high_freq = st.checkbox("High frequencies (4k-8kHz)", True)
-        
-        # Training button
-        train_button = st.button("Train Model", type="primary")
-        
-        if train_button:
-            # Feature selection
-            selected_features = []
+        if len(selected_features) == 0:
+            st.warning("Please select at least one feature.")
+        else:
+            # Train model button
+            train_clicked = st.button("Train Model", type="primary")
             
-            if use_personal:
-                if use_age:
-                    selected_features.append('age')
-                if use_gender:
-                    selected_features.append('gender')
-            
-            if use_earphone:
-                if use_type:
-                    selected_features.append('earphone_type')
-                if use_hours:
-                    selected_features.append('usage_hours')
-                if use_years:
-                    selected_features.append('usage_years')
-                if use_volume:
-                    selected_features.append('volume_level')
-            
-            if use_audio:
-                if use_low_freq:
-                    selected_features.extend(['f250', 'f500'])
-                if use_mid_freq:
-                    selected_features.extend(['f1k', 'f2k'])
-                if use_high_freq:
-                    selected_features.extend(['f4k', 'f8k'])
-            
-            if not selected_features:
-                st.error("Please select at least one feature.")
-                st.stop()
-                
-            with st.spinner("Training model..."):
-                # Select features
-                X_selected = X[selected_features].copy()
-                
-                # Split dataset
-                X_train, X_test, y_train, y_test = train_test_split(
-                    X_selected, y, test_size=test_size, random_state=42, stratify=y
-                )
-                
-                # Create preprocessing pipeline
-                categorical_features = ['earphone_type'] if 'earphone_type' in selected_features else []
-                numerical_features = [f for f in selected_features if f != 'earphone_type']
-                
-                transformers = []
-                
-                if categorical_features:
-                    categorical_transformer = OneHotEncoder(handle_unknown='ignore')
-                    transformers.append(('cat', categorical_transformer, categorical_features))
-                
-                if numerical_features:
-                    numerical_transformer = StandardScaler()
-                    transformers.append(('num', numerical_transformer, numerical_features))
-                
-                preprocessor = ColumnTransformer(transformers)
-                
-                # Apply SMOTE if selected
-                if use_smote:
-                    smote = SMOTE(random_state=42)
-                    X_train_prep = preprocessor.fit_transform(X_train)
-                    X_train_prep, y_train = smote.fit_resample(X_train_prep, y_train)
+            if train_clicked:
+                with st.spinner("Training model..."):
+                    # Select features
+                    X_selected = X[selected_features]
                     
-                    # Create appropriate model based on selection
+                    # Split data
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        X_selected, y, stratify=y, test_size=0.2, random_state=42
+                    )
+                    
+                    # Identify numeric and categorical features
+                    numeric_features = [col for col in X_selected.columns if X_selected[col].dtype in [np.int64, np.float64] 
+                                        and col != 'earphone_type']
+                    categorical_features = [col for col in X_selected.columns if col == 'earphone_type']
+                    
+                    # Create preprocessor
+                    transformers = []
+                    if numeric_features:
+                        transformers.append(("num", StandardScaler(), numeric_features))
+                    if categorical_features:
+                        transformers.append(("cat", OneHotEncoder(handle_unknown='ignore'), categorical_features))
+                    
+                    preprocessor = ColumnTransformer(transformers)
+                    
+                    # Create classifier based on selection
                     if model_type == "Random Forest":
-                        model = RandomForestClassifier(
+                        classifier = RandomForestClassifier(
                             n_estimators=n_estimators,
                             max_depth=max_depth,
                             min_samples_split=min_samples_split,
-                            class_weight=class_weight,
                             random_state=42
                         )
                     elif model_type == "XGBoost":
-                        model = xgb.XGBClassifier(
-                            n_estimators=n_estimators,
-                            learning_rate=learning_rate,
-                            max_depth=max_depth,
-                            subsample=subsample,
-                            random_state=42
+                        import xgboost as xgb
+                        classifier = xgb.XGBClassifier(
+                            random_state=42,
+                            use_label_encoder=False,
+                            eval_metric='logloss'
                         )
                     else:  # Logistic Regression
-                        model = LogisticRegression(
-                            C=C,
-                            penalty=penalty,
-                            solver=solver,
-                            random_state=42,
-                            max_iter=1000
-                        )
+                        from sklearn.linear_model import LogisticRegression
+                        classifier = LogisticRegression(random_state=42, max_iter=1000)
+                    
+                    # Create pipeline
+                    if use_smote:
+                        pipeline = Pipeline([
+                            ('preprocessor', preprocessor),
+                            ('smote', SMOTE(random_state=42)),
+                            ('classifier', classifier)
+                        ])
+                    else:
+                        pipeline = Pipeline([
+                            ('preprocessor', preprocessor),
+                            ('classifier', classifier)
+                        ])
                     
                     # Train model
-                    model.fit(X_train_prep, y_train)
-                    
-                    # Transform test data
-                    X_test_prep = preprocessor.transform(X_test)
-                    
-                else:
-                    # Create pipeline without SMOTE
-                    if model_type == "Random Forest":
-                        clf = RandomForestClassifier(
-                            n_estimators=n_estimators,
-                            max_depth=max_depth,
-                            min_samples_split=min_samples_split,
-                            class_weight=class_weight,
-                            random_state=42
-                        )
-                    elif model_type == "XGBoost":
-                        clf = xgb.XGBClassifier(
-                            n_estimators=n_estimators,
-                            learning_rate=learning_rate,
-                            max_depth=max_depth,
-                            subsample=subsample,
-                            random_state=42
-                        )
-                    else:  # Logistic Regression
-                        clf = LogisticRegression(
-                            C=C,
-                            penalty=penalty,
-                            solver=solver,
-                            random_state=42,
-                            max_iter=1000
-                        )
-                    
-                    # Create and train pipeline
-                    pipeline = Pipeline([
-                        ('preprocessor', preprocessor),
-                        ('classifier', clf)
-                    ])
-                    
                     pipeline.fit(X_train, y_train)
-                    model = pipeline  # For consistency in the code
-                
-                # Evaluate model
-                if use_smote:
-                    y_pred = model.predict(X_test_prep)
-                    y_prob = model.predict_proba(X_test_prep)[:, 1]
-                else:
-                    y_pred = model.predict(X_test)
-                    y_prob = model.predict_proba(X_test)[:, 1]
-                
-                # Calculate metrics
-                accuracy = np.mean(y_pred == y_test)
-                report = classification_report(y_test, y_pred, output_dict=True)
-                conf_matrix = confusion_matrix(y_test, y_pred)
-                
-                # Calculate ROC curve
-                fpr, tpr, _ = roc_curve(y_test, y_prob)
-                roc_auc = auc(fpr, tpr)
-                
-                # Show results
-                st.subheader("Model Performance")
-                st.metric("Accuracy", f"{accuracy:.2%}")
-                
-                # Create columns for metrics
-                metric_cols = st.columns(4)
-                with metric_cols[0]:
-                    st.metric("Precision", f"{report['1']['precision']:.2%}")
-                with metric_cols[1]:
-                    st.metric("Recall", f"{report['1']['recall']:.2%}")
-                with metric_cols[2]:
-                    st.metric("F1 Score", f"{report['1']['f1-score']:.2%}")
-                with metric_cols[3]:
-                    st.metric("AUC", f"{roc_auc:.2%}")
-                
-                # Display confusion matrix
-                st.subheader("Confusion Matrix")
-                fig = sns.Figure(figsize=(6, 5))
-                ax = fig.subplots()
-                sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False,
-                           xticklabels=['Normal', 'Hearing Loss'],
-                           yticklabels=['Normal', 'Hearing Loss'],
-                           ax=ax)
-                ax.set_xlabel('Predicted')
-                ax.set_ylabel('Actual')
-                st.pyplot(fig)
-                
-                # Display ROC curve
-                st.subheader("ROC Curve")
-                fig = sns.Figure(figsize=(6, 5))
-                ax = fig.subplots()
-                ax.plot(fpr, tpr, label=f'AUC = {roc_auc:.2f}')
-                ax.plot([0, 1], [0, 1], 'k--')
-                ax.set_xlabel('False Positive Rate')
-                ax.set_ylabel('True Positive Rate')
-                ax.set_title('Receiver Operating Characteristic (ROC) Curve')
-                ax.legend(loc='lower right')
-                st.pyplot(fig)
-                
-                # Display feature importance if applicable
-                if model_type in ["Random Forest", "XGBoost"]:
-                    st.subheader("Feature Importance")
                     
-                    # Extract feature importances
-                    if use_smote:
-                        importances = model.feature_importances_
-                        feature_names = X_train.columns if hasattr(X_train, 'columns') else [f"Feature {i}" for i in range(X_train.shape[1])]
-                    else:
-                        # For pipeline, get feature names from preprocessor
-                        feature_names = []
-                        importances = model.named_steps['classifier'].feature_importances_
+                    # Save model
+                    joblib.dump(pipeline, "hearing_loss_model.pkl")
+                    
+                    # Evaluate model
+                    y_pred = pipeline.predict(X_test)
+                    y_prob = pipeline.predict_proba(X_test)[:, 1]
+                    
+                    # Cross-validation
+                    cv_scores = cross_val_score(pipeline, X_selected, y, cv=5, scoring='roc_auc')
+                    
+                    # Display results
+                    st.subheader("Model Evaluation")
+                    
+                    # Model metrics
+                    metrics_col1, metrics_col2 = st.columns(2)
+                    
+                    with metrics_col1:
+                        # Classification report
+                        st.text("Classification Report:")
+                        st.text(classification_report(y_test, y_pred))
                         
-                        # Get feature names after preprocessing
-                        if categorical_features:
-                            # Get transformed categorical feature names
-                            cat_encoder = model.named_steps['preprocessor'].transformers_[0][1]
-                            cat_feature_names = [f"{col}_{val}" for col in categorical_features
-                                              for val in cat_encoder.categories_[0]]
-                            feature_names.extend(cat_feature_names)
-                        
-                        # Add numerical features
-                        feature_names.extend(numerical_features)
+                    with metrics_col2:
+                        # Confusion matrix
+                        st.text("Confusion Matrix:")
+                        cm = confusion_matrix(y_test, y_pred)
+                        fig, ax = plt.subplots(figsize=(6, 4))
+                        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax)
+                        ax.set_xlabel('Predicted')
+                        ax.set_ylabel('Actual')
+                        ax.set_title('Confusion Matrix')
+                        st.pyplot(fig)
                     
-                    # Create importance dataframe
-                    importance_df = pd.DataFrame({
-                        'Feature': feature_names[:len(importances)],
-                        'Importance': importances
-                    }).sort_values('Importance', ascending=False)
+                    # ROC curve
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    fpr, tpr, _ = roc_curve(y_test, y_prob)
+                    roc_auc = auc(fpr, tpr)
                     
-                    # Plot feature importance
-                    fig = sns.Figure(figsize=(10, 6))
-                    ax = fig.subplots()
-                    sns.barplot(data=importance_df, x='Importance', y='Feature', ax=ax)
-                    ax.set_title('Feature Importance')
+                    ax.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+                    ax.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+                    ax.set_xlim([0.0, 1.0])
+                    ax.set_ylim([0.0, 1.05])
+                    ax.set_xlabel('False Positive Rate')
+                    ax.set_ylabel('True Positive Rate')
+                    ax.set_title('Receiver Operating Characteristic (ROC)')
+                    ax.legend(loc="lower right")
+                    
                     st.pyplot(fig)
-                
-                # Save model button
-                if st.button("Save Model"):
-                    if use_smote:
-                        # Save model and preprocessor separately
-                        joblib.dump(model, "hearing_loss_model.pkl")
-                        joblib.dump(preprocessor, "preprocessor.pkl")
-                    else:
-                        # Save the whole pipeline
-                        joblib.dump(model, "hearing_loss_pipeline.pkl")
                     
-                    st.success("Model saved successfully!")
-
-with tab4:
-    st.header("About")
-    st.markdown("""
-    ## Hearing Loss Risk Assessment Tool
-    
-    This application is designed to help users assess their risk of hearing loss based on various factors.
-    It uses machine learning algorithms to analyze audiometry data along with personal factors and earphone usage patterns.
-    
-    ### Key Features:
-    
-    - **Prediction**: Assess hearing loss risk using audiometry results and personal factors
-    - **Data Generation**: Create synthetic datasets for research and model training
-    - **Model Training**: Train and evaluate machine learning models for hearing loss prediction
-    
-    ### How to Use:
-    
-    1. Go to the **Prediction** tab to assess your hearing risk
-    2. Input your audiometry results (hearing thresholds) and personal information
-    3. View your risk assessment and recommendations
-    
-    ### Medical Disclaimer:
-    
-    This tool is for educational and informational purposes only. It is not a substitute for professional medical advice,
-    diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any
-    questions you may have regarding a medical condition.
-    
-    ### Resources:
-    
-    - [World Health Organization - Hearing Loss](https://www.who.int/health-topics/hearing-loss)
-    - [National Institute on Deafness and Other Communication Disorders](https://www.nidcd.nih.gov/health/hearing-loss)
-    - [American Speech-Language-Hearing Association](https://www.asha.org/)
-    """)
-    
-    # Credits
-    st.subheader("Credits")
-    st.markdown("""
-    - **Created by**: [Your Name/Organization]
-    - **Version**: 1.0.0
-    - **Last Updated**: May 2025
-    
-    For questions or support, please contact: [your@email.com]
-    """)
+                    # Cross-validation results
+                    st.subheader("Cross-Validation Results")
+                    st.write(f"Mean ROC AUC: {cv_scores.mean():.3f} (±{cv_scores.std():.3f})")
+                    
+                    # Feature importance
+                    if model_type == "Random Forest" or model_type == "XGBoost":
+                        st.subheader("Feature Importance")
+                        
+                        # Get feature importance from the model
+                        if hasattr(pipeline['classifier'], 'feature_importances_'):
+                            importances = pipeline['classifier'].feature_importances_
+                            
+                            # Get feature names after preprocessing
+                            if categorical_features:
+                                # Get the categorical feature names after one-hot encoding
+                                cat_encoder = pipeline['preprocessor'].transformers_[1][1]
+                                cat_features = cat_encoder.get_feature_names_out(categorical_features).tolist()
+                                feature_names = numeric_features + cat_features
+                            else:
+                                feature_names = numeric_features
+                            
+                            # Create DataFrame for visualization
+                            if len(importances) == len(feature_names):
+                                importance_df = pd.DataFrame({
+                                    'Feature': feature_names,
+                                    'Importance': importances
+                                }).sort_values('Importance', ascending=False)
+                                
+                                # Plot feature importance
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                sns.barplot(x='Importance', y='Feature', data=importance_df, ax=ax)
+                                ax.set_title('Feature Importance')
+                                st.pyplot(fig)
+                            else:
+                                st.warning("Feature names length doesn't match importance values. Cannot display feature importance.")
+                        else:
+                            st.info("Feature importance not available for this model.")
+                    
+                    # Success message
+                    st.success(f"Model trained successfully! Model saved as 'hearing_loss_model.pkl'")
+                    
+                    # Model insights
+                    st.subheader("Model Insights")
+                    
+                    # Threshold analysis
+                    threshold_range = np.arange(0.1, 0.9, 0.1)
+                    thresholds_df = pd.DataFrame(columns=['Threshold', 'Precision', 'Recall', 'F1-Score'])
+                    
+                    for threshold in threshold_range:
+                        y_pred_custom = (y_prob >= threshold).astype(int)
+                        precision = np.sum((y_pred_custom == 1) & (y_test == 1)) / np.sum(y_pred_custom == 1) if np.sum(y_pred_custom == 1) > 0 else 0
+                        recall = np.sum((y_pred_custom == 1) & (y_test == 1)) / np.sum(y_test == 1)
+                        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+                        
+                        thresholds_df.loc[len(thresholds_df)] = {
+                            'Threshold': threshold,
+                            'Precision': precision,
+                            'Recall': recall, 
+                            'F1-Score': f1
+                        }
+                    
+                    # Plot threshold analysis
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    sns.lineplot(data=thresholds_df.melt(id_vars='Threshold', var_name='Metric', value_name='Value'), 
+                                x='Threshold', y='Value', hue='Metric', ax=ax)
+                    ax.set_title('Metrics vs. Probability Threshold')
+                    ax.set_xlabel('Classification Threshold')
+                    ax.set_ylabel('Score')
+                    st.pyplot(fig)
